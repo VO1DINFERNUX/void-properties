@@ -1,0 +1,44 @@
+-- void-properties local database schema (SQLite)
+
+CREATE TABLE IF NOT EXISTS leads (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    source          TEXT NOT NULL,              -- where the lead came from (e.g. "harris_county_deeds", "fsbo_site")
+    source_ref      TEXT,                       -- source-native unique id (e.g. county deed file number); NULL when the source has none
+    address         TEXT NOT NULL,
+    city            TEXT,
+    state           TEXT,
+    zip             TEXT,
+    owner_name      TEXT,
+    owner_phone     TEXT,
+    owner_email     TEXT,
+    estimated_value REAL,
+    motivation_tags TEXT,                       -- comma-separated (e.g. "pre-foreclosure,vacant,tax-delinquent")
+    status          TEXT NOT NULL DEFAULT 'new' CHECK (status IN
+                        ('new', 'contacted', 'responded', 'negotiating',
+                         'under_contract', 'closed', 'dead')),
+    notes           TEXT,
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (address, city, state, zip)
+);
+
+CREATE TABLE IF NOT EXISTS outreach_events (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    lead_id     INTEGER NOT NULL REFERENCES leads(id) ON DELETE CASCADE,
+    channel     TEXT NOT NULL CHECK (channel IN ('call', 'sms', 'email', 'direct_mail', 'door_knock')),
+    direction   TEXT NOT NULL DEFAULT 'outbound' CHECK (direction IN ('outbound', 'inbound')),
+    message     TEXT,
+    response    TEXT,
+    outcome     TEXT,                           -- e.g. "no_answer", "interested", "not_interested", "callback_requested"
+    occurred_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Real dedup key for sources that hand us a stable native id (e.g. a county
+-- deed file number or MLS/listing id). The address-based UNIQUE above is
+-- useless for such sources because city/state/zip are often NULL, and SQL
+-- treats NULL as distinct from NULL, so it never collides.
+CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_source_ref
+    ON leads(source, source_ref) WHERE source_ref IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
+CREATE INDEX IF NOT EXISTS idx_outreach_lead_id ON outreach_events(lead_id);
