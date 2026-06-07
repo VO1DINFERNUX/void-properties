@@ -9,6 +9,9 @@ from typing import Optional
 
 from src.db.database import get_connection
 
+from . import channels
+from .channels import ChannelError, SendResult
+
 VALID_CHANNELS = {"call", "sms", "email", "direct_mail", "door_knock"}
 VALID_STATUSES = {
     "new", "contacted", "responded", "negotiating",
@@ -48,6 +51,73 @@ def log_outreach(
                 (new_status, lead_id),
             )
         return cursor.lastrowid
+
+
+# Channels `contact_lead` can actually send through. `direct_mail` and
+# `door_knock` have no API to call — those stay manual, via `log_outreach`.
+_CONTACT_FIELD = {"sms": "owner_phone", "call": "owner_phone", "email": "owner_email"}
+
+
+def contact_lead(
+    lead_id: int,
+    channel: str,
+    message: str,
+    subject: Optional[str] = None,
+    new_status: str = "contacted",
+) -> tuple[int, SendResult]:
+    """Actually reach out to a lead — sends for real, then logs what happened.
+
+    Unlike `log_outreach()` (which records an attempt *you* made elsewhere),
+    this is the automated path: it sends an SMS or places a voice call through
+    Twilio, or sends an email through SendGrid, then writes the outcome to
+    `outreach_events` either way — a failed send is as visible in the lead's
+    history as a successful one. On success the lead's status advances to
+    `new_status` (default 'contacted'); on failure it's left alone, so a bad
+    number or a bounce doesn't silently knock the lead out of the worklist.
+
+    Only `sms`, `call`, and `email` are wired to a provider. Raises
+    `ValueError` for any other channel — use `log_outreach()` for
+    `direct_mail`/`door_knock`, which have no API to drive.
+
+    Raises `ChannelError` *before* sending if the lead has no contact info
+    for the channel, or the provider's credentials aren't set in
+    `config/.env` — both checked up front so a typo in .env fails loud, not
+    as a vague 401 after the fact.
+
+    Returns `(outreach_events row id, SendResult)`.
+    """
+    if channel not in _CONTACT_FIELD:
+        raise ValueError(
+            f"contact_lead() can only send via {sorted(_CONTACT_FIELD)} — "
+            f"'{channel}' has no provider; use log_outreach() to record it manually"
+        )
+
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
+    if row is None:
+        raise ValueError(f"No lead #{lead_id}")
+    lead = dict(row)
+
+    field = _CONTACT_FIELD[channel]
+    address = lead.get(field)
+    if not address:
+        raise ChannelError(f"Lead #{lead_id} has no {field} on file — can't send a {channel}")
+
+    if channel == "sms":
+        result = channels.send_sms(address, message)
+    elif channel == "call":
+        result = channels.place_call(address, message)
+    else:
+        result = channels.send_email(address, subject or "", message)
+
+    event_id = log_outreach(
+        lead_id=lead_id,
+        channel=channel,
+        message=message,
+        outcome=result.detail if result.ok else f"send_failed: {result.detail}",
+        new_status=new_status if result.ok else None,
+    )
+    return event_id, result
 
 
 def history(lead_id: int) -> list[dict]:

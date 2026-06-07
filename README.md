@@ -129,6 +129,39 @@ python scripts/outreach_queue.py log 42 call --outcome interested --status respo
 python scripts/outreach_queue.py log 17 direct_mail --message "Cash offer letter sent"
 ```
 
+### Sending automatically (Twilio + SendGrid)
+
+`log` records an attempt *you* made elsewhere. `src/outreach/channels.py` +
+`tracker.contact_lead()` add the other half — actually placing the SMS/voice
+call (Twilio) or sending the email (SendGrid) — wired up via the `contact`
+subcommand:
+
+```
+python scripts/outreach_queue.py contact 42 sms   --message "Hi, this is..."
+python scripts/outreach_queue.py contact 42 call  --message "Hi, this is a recorded message for..."
+python scripts/outreach_queue.py contact 42 email --subject "Cash offer" --message "..."
+```
+
+It looks up the lead's `owner_phone`/`owner_email`, sends through the
+provider, and logs the outcome to `outreach_events` either way — a failed
+send (bad number, bounce, unverified sender) is as visible in the lead's
+history as a successful one, and the lead's `status` only advances on success
+(default target: `contacted`, override with `--status`). `direct_mail` and
+`door_knock` have no API to drive and stay on `log`.
+
+Both providers are plain REST APIs, called directly with `requests` (no SDK
+dependency). Set these in `config/.env` (template in `config/.env.example`)
+before using `contact` — `ChannelError` explains exactly what's missing if
+you don't:
+
+```
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM_NUMBER=        # E.164, e.g. +18325551234
+SENDGRID_API_KEY=
+SENDGRID_FROM_EMAIL=       # must be a verified sender in your SendGrid account
+```
+
 ## Database schema
 
 See `src/db/schema.sql` — two tables: `leads` and `outreach_events`
