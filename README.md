@@ -87,6 +87,36 @@ python scripts\init_db.py
   INSTRUMENT" (no section/lot/block to disambiguate a common surname) and no
   candidate name was distinctive enough to resolve on its own.
 
+- `src/enrichment/apollo.py` — fills in `owner_phone`/`owner_email` so the
+  Twilio/SendGrid integration (see "Sending automatically" under "Outreach")
+  has something to send to. Neither the deed records nor HCAD's bulk export
+  carry contact info — `hcad.py` only gets you a real *address*. This module
+  takes leads HCAD has already resolved (`zip IS NOT NULL`) with a
+  person-shaped `owner_name` (entity/trust/bank names are filtered out — see
+  `_ENTITY_NOISE` — there's no person behind those for Apollo to find) and
+  matches them against Apollo.io's contact database via its People Match API
+  (`POST /api/v1/people/match`), writing back whatever phone/email it finds.
+  Run it with `python -m src.enrichment.apollo`, or call `enrich_leads()`
+  directly. Needs `APOLLO_API_KEY` in `config/.env`
+  (https://app.apollo.io/#/settings/integrations/api) — `ApolloError`
+  explains what's missing if you skip that.
+
+  Worth knowing: Apollo only returns a phone number synchronously if the
+  record already carries a verified one — revealing a withheld number is an
+  *async, webhook-only* flow on Apollo's end (a compliance step, not a
+  client-side toggle). This module has no public server to receive that
+  callback, so it only requests a reveal when `APOLLO_PHONE_WEBHOOK_URL`
+  names somewhere that can; otherwise it takes whatever Apollo hands back
+  directly. In practice that makes **email the reliable half** of this
+  integration and phone numbers a bonus when Apollo already has one on file.
+
+  Each Apollo lookup is a real network round-trip (plus a deliberate
+  `request_delay` between them to spread out credit-consuming calls), so —
+  unlike `hcad.py`'s all-local-DB matching — `enrich_leads()` reads its
+  candidate list in one short transaction and then writes each match back
+  individually, so a slow API response never holds the `leads` table's write
+  lock open across the whole run.
+
 ## Pipeline
 
 1. **Scrape** — implement a `LeadSource` in `src/scraper/scraper.py` for each
@@ -94,11 +124,13 @@ python scripts\init_db.py
    and register it in `run()`. Leads are upserted into the `leads` table,
    deduped on (address, city, state, zip) or, where a source provides a
    stable native id (e.g. a deed file number), on (source, source_ref).
-2. **Enrich** — run `src/enrichment/hcad.py` to resolve any placeholder
-   addresses (see "Enrichment" above) before outreach.
+2. **Enrich** — run `src/enrichment/hcad.py` to resolve placeholder addresses,
+   then `src/enrichment/apollo.py` to fill in phone/email for those resolved
+   leads (see "Enrichment" above) — both before outreach.
 3. **Work the queue** — `python scripts/outreach_queue.py` shows a prioritized
-   worklist of who to contact today (see "Outreach" below) and
-   `... log <id> <channel> ...` records each attempt.
+   worklist of who to contact today (see "Outreach" below); `... log <id>
+   <channel> ...` records an attempt you made yourself, `... contact <id>
+   <channel> ...` actually sends one via Twilio/SendGrid.
 4. **Review pipeline** — `src/outreach/tracker.pipeline_summary()` (also
    printed at the top of the queue) gives a quick count of leads per status.
 
