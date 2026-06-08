@@ -196,6 +196,78 @@ def next_to_contact(limit: int = 20) -> list[dict]:
     return leads[:limit]
 
 
+# How long to wait for a reply before nudging again. Long enough that a
+# normal reply-delay isn't mistaken for a brush-off, short enough that the
+# lead is still warm — matches the cadence the `follow_up_email` template
+# itself describes ("just circling back...").
+FOLLOWUP_DELAY_DAYS = 3
+
+
+def due_for_followup(limit: Optional[int] = None) -> list[dict]:
+    """Leads worth nudging with `follow_up_email` — gone quiet after one email.
+
+    A lead qualifies when *all* of: its status is still 'contacted' (no reply
+    has moved it to 'responded' or beyond, and no one's marked it 'dead'),
+    exactly one outbound email has ever been sent to it (so a second send is
+    genuinely a *follow-up*, not a third-or-later message this function
+    doesn't know how to sequence), and that email went out at least
+    `FOLLOWUP_DELAY_DAYS` days ago. Newest-overdue-first within that set isn't
+    useful here — every qualifying lead is already past the same threshold —
+    so this orders by longest-silent first instead, surfacing the ones most
+    at risk of going cold.
+    """
+    with get_connection() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                l.*,
+                MAX(CASE WHEN oe.channel = 'email' AND oe.direction = 'outbound'
+                         THEN oe.occurred_at END) AS last_email_at,
+                julianday('now') - julianday(MAX(CASE WHEN oe.channel = 'email'
+                    AND oe.direction = 'outbound' THEN oe.occurred_at END)) AS days_since_email
+            FROM leads l
+            JOIN outreach_events oe ON oe.lead_id = l.id
+            WHERE l.status = 'contacted'
+            GROUP BY l.id
+            HAVING SUM(CASE WHEN oe.channel = 'email' AND oe.direction = 'outbound' THEN 1 ELSE 0 END) = 1
+               AND days_since_email >= ?
+            ORDER BY days_since_email DESC
+            """,
+            (FOLLOWUP_DELAY_DAYS,),
+        ).fetchall()
+
+    leads = [dict(row) for row in rows]
+    return leads[:limit] if limit is not None else leads
+
+
+def send_followups(limit: Optional[int] = None) -> dict[str, int]:
+    """Send `follow_up_email` to every lead `due_for_followup()` finds.
+
+    Mirrors `contact_lead()`'s honesty about failure — a bad address or a
+    bounce is logged and counted, not silently retried. Status stays
+    'contacted' on success (the default `new_status`), but the new
+    `outreach_events` row is what actually matters: it brings the lead's
+    outbound-email count to 2, so `due_for_followup()`'s `= 1` check stops
+    matching it — no risk of nudging the same silent lead over and over —
+    and `next_to_contact()` now reads it as freshly worked rather than
+    overdue.
+
+    Returns `{"sent": n, "failed": n}`.
+    """
+    sent = failed = 0
+    for lead in due_for_followup(limit=limit):
+        try:
+            _, result = contact_lead(lead_id=lead["id"], channel="email", template="follow_up_email")
+        except ChannelError:
+            failed += 1
+            continue
+        if result.ok:
+            sent += 1
+        else:
+            failed += 1
+    return {"sent": sent, "failed": failed}
+
+
 def format_worklist_row(lead: dict) -> str:
     """One human-readable line summarizing a next_to_contact() entry."""
     location = ", ".join(part for part in (lead.get("address"), lead.get("city"), lead.get("zip")) if part)

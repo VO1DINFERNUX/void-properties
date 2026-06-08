@@ -8,6 +8,8 @@ Usage:
     python scripts/outreach_queue.py contact 42 email --subject "Cash offer" --message "..."
     python scripts/outreach_queue.py contact 42 sms --template sms
     python scripts/outreach_queue.py contact 42 email --template intro_email
+    python scripts/outreach_queue.py followups               # preview who's due for a nudge
+    python scripts/outreach_queue.py followups --send        # actually send them
 
 `log` records an attempt *you* made yourself (a call, a knock on the door).
 `contact` actually sends — SMS/voice via Twilio, email via SendGrid — and
@@ -17,6 +19,11 @@ intro_email/follow_up_email/sms/voicemail copy) to send pre-written, on-brand
 outreach filled in automatically from the lead's own name and address — no
 `--message` typing required, and no `--subject` either for the email templates,
 which carry their own.
+
+`followups` finds leads stuck on 'contacted' with exactly one outbound email
+sent 3+ days ago and no reply, and sends each one `follow_up_email`. It only
+*previews* that list by default — pass `--send` to actually fire the emails;
+this is automated outreach to real people, so it doesn't go out silently.
 """
 import argparse
 import sys
@@ -94,6 +101,23 @@ def _contact(args: argparse.Namespace) -> None:
         print(f"Logged as outreach_events#{event_id} (status left unchanged)")
 
 
+def _followups(args: argparse.Namespace) -> None:
+    due = tracker.due_for_followup(limit=args.limit)
+    if not due:
+        print(f"Nothing due for a follow-up — no 'contacted' lead has gone {tracker.FOLLOWUP_DELAY_DAYS}+ days without a reply after exactly one email.")
+        return
+
+    if not args.send:
+        print(f"{len(due)} lead(s) due for a follow-up email (preview — pass --send to actually send):")
+        for lead in due:
+            print(f"  #{lead['id']} {lead.get('owner_name') or 'unknown owner'} "
+                  f"-- {lead.get('owner_email')} -- {lead['days_since_email']:.1f}d since last email")
+        return
+
+    result = tracker.send_followups(limit=args.limit)
+    print(f"Sent {result['sent']} follow-up email(s), {result['failed']} failed (see outreach_events for details).")
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--limit", type=int, default=20, help="how many leads to show in the worklist (default 20)")
@@ -125,11 +149,22 @@ def main(argv: list[str] | None = None) -> None:
         help="status to set on a successful send (default: contacted)",
     )
 
+    followups_p = sub.add_parser(
+        "followups",
+        help=f"preview/send {tracker.FOLLOWUP_DELAY_DAYS}-day no-reply follow-up emails",
+    )
+    followups_p.add_argument(
+        "--send", action="store_true",
+        help="actually send the follow-up emails (default: preview only)",
+    )
+
     args = parser.parse_args(argv)
     if args.command == "log":
         _log(args)
     elif args.command == "contact":
         _contact(args)
+    elif args.command == "followups":
+        _followups(args)
     else:
         _show_queue(args.limit)
 

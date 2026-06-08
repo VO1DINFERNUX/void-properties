@@ -39,6 +39,25 @@ python scripts\init_db.py
   needing cross-reference against HCAD (hcad.org) before outreach. Run it
   directly with `python -m src.scraper.sources.harris_county_deeds`.
 
+- `src/scraper/sources/harris_county_buyers.py` — `HarrisCountyBuyerSource`
+  searches the same portal (sharing its ASP.NET WebForms search/parsing
+  plumbing with `harris_county_deeds` via `_harris_county_clerk.py`) but reads
+  the **grantee** side of "DEED" filings to surface likely cash buyers —
+  people/entities actively purchasing Harris County property right now. A
+  grantee is flagged when its name reads like a real-estate investor/
+  wholesaler (`_INVESTOR_PATTERNS` — LLC/LP, "... Properties", "... Capital",
+  "Buys Houses", etc.) and/or it shows up as grantee on 2+ deeds within the
+  lookback window — a buying *pattern* a regular homebuyer wouldn't show.
+  Deed records carry no financing info at all, so "cash buyer" here is an
+  inference from purchase pattern, not a fact — every result lands in the
+  `buyers` table flagged UNVERIFIED, same conservative posture as the seller
+  side: confirm via the document image (or HCAD) that a purchase wasn't
+  financed before pitching a wholesale assignment to someone. Each run
+  recomputes `purchase_count`/`last_purchase_*` fresh from the current
+  window and upserts on `(source, buyer_name)`, so overlapping runs correct
+  the snapshot rather than double-counting. Run it directly with
+  `python -m src.scraper.sources.harris_county_buyers`.
+
 - **Zillow FSBO was deliberately not built.** Zillow's Terms of Use
   explicitly prohibit scraping ("You may not use any robot, spider, scraper
   or other automated means...") and they don't offer a public API for this —
@@ -116,6 +135,30 @@ python scripts\init_db.py
   candidate list in one short transaction and then writes each match back
   individually, so a slow API response never holds the `leads` table's write
   lock open across the whole run.
+
+- `src/enrichment/claude_score.py` — ranks each lead 1-10 for outreach
+  priority by handing Claude its scraped `motivation_tags` and `notes` (the
+  file number, instrument type, and grantor/grantee names a county-records
+  source leaves behind) and asking it to weigh **distress signals**, **likely
+  equity**, and **motivation**, returning `{"score": 1-10, "rationale": "..."}`
+  written back to `leads.deal_score`/`deal_score_rationale`. Worth knowing:
+  the `leads` table carries no lien/mortgage/payoff data, so "equity" is never
+  a computed figure here — Claude is asked to *qualitatively infer* it from
+  textual clues (an old legal description and a probate filing read very
+  differently from a fresh judgment lien) and to say plainly when there isn't
+  enough to go on. Treat `deal_score` as "which leads to read first", not a
+  verified valuation — the same "flag it, don't fake it" posture as every
+  other UNVERIFIED marker in this pipeline. Calls the Anthropic Messages API
+  directly via `requests` (`claude-haiku-4-5-20251001` by default — cheap
+  enough to score every lead, swappable for Sonnet if you want deeper
+  reasoning on a smaller batch). Targets leads with `deal_score IS NULL` and
+  a non-empty `motivation_tags` (nothing to weigh on a lead with no signal at
+  all), reading its candidate list in one short transaction and scoring/
+  writing each one individually — same lock-avoidance pattern as
+  `apollo.enrich_leads()`. Run it with `python -m src.enrichment.claude_score`,
+  or call `score_leads()` directly. Needs `ANTHROPIC_API_KEY` in
+  `config/.env` (https://console.anthropic.com/settings/keys) — `ScoreError`
+  explains what's missing if you skip that.
 
 ## Pipeline
 
@@ -195,6 +238,26 @@ that lead's own `owner_name`/`address` (`templates.render()`) — no typing a
 `--message` or `--subject` by hand, and no risk of a copy-paste mismatch
 between what you meant to send and what went out.
 
+### Following up automatically
+
+A lead that goes quiet after one email is easy to lose track of in a list of
+hundreds. `tracker.due_for_followup()` finds leads stuck on `contacted` with
+*exactly one* outbound email logged, sent `FOLLOWUP_DELAY_DAYS` (3) or more
+days ago and still no reply — long enough that it's not mistaken for a normal
+reply-delay, short enough that the lead is still warm — and `send_followups()`
+fires the `follow_up_email` template at each of them, logging the result
+(success or failure) the same honest way `contact_lead()` always does. A
+sent follow-up brings the lead's outbound-email count to 2, so it naturally
+won't be picked up again — no risk of nudging the same silent lead forever.
+
+```
+python scripts/outreach_queue.py followups               # preview who's due
+python scripts/outreach_queue.py followups --send        # actually send them
+```
+
+It previews by default; `--send` is required to actually fire — this sends
+automated messages to real people, so it doesn't go out silently.
+
 Both providers are plain REST APIs, called directly with `requests` (no SDK
 dependency). Set these in `config/.env` (template in `config/.env.example`)
 before using `contact` — `ChannelError` explains exactly what's missing if
@@ -210,5 +273,11 @@ SENDGRID_FROM_EMAIL=       # must be a verified sender in your SendGrid account
 
 ## Database schema
 
-See `src/db/schema.sql` — two tables: `leads` and `outreach_events`
-(foreign key to `leads`).
+See `src/db/schema.sql` — `leads` (with `deal_score`/`deal_score_rationale`
+from `claude_score.py`), `outreach_events` (foreign key to `leads`), and
+`buyers` (populated by `harris_county_buyers.py`, upserted on
+`(source, buyer_name)`). The `deal_score`/`deal_score_rationale` columns are
+added by `init_db()` itself rather than `CREATE TABLE`/`ALTER ... ADD COLUMN`
+in schema.sql — SQLite has no `ADD COLUMN IF NOT EXISTS`, so a plain `ALTER`
+there would fail every re-run once the column exists; `database._ensure_columns`
+checks `PRAGMA table_info` first and adds only what's missing.

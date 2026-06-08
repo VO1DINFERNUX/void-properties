@@ -42,3 +42,30 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_leads_source_ref
 
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status);
 CREATE INDEX IF NOT EXISTS idx_outreach_lead_id ON outreach_events(lead_id);
+
+-- Claude-based 1-10 scoring lives on `leads.deal_score` /
+-- `leads.deal_score_rationale` — added by `init_db()` itself (see
+-- database.py's `_ensure_columns`), since SQLite's ALTER TABLE has no
+-- `ADD COLUMN IF NOT EXISTS` and `executescript` can't conditionally skip
+-- a statement that errors on a column that already exists.
+
+-- Likely cash buyers, surfaced from Harris County deed grantees (see
+-- src/scraper/sources/harris_county_buyers.py) — recurring or investor-
+-- entity-shaped purchasers worth approaching about a wholesale assignment.
+-- Each run recomputes purchase_count/last_purchase_* fresh from the lookback
+-- window rather than incrementing, so re-runs don't double-count.
+CREATE TABLE IF NOT EXISTS buyers (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    source                TEXT NOT NULL,
+    source_ref            TEXT,                  -- most recent deed file number observed for this buyer
+    buyer_name            TEXT NOT NULL,         -- grantee name as recorded (often an entity)
+    purchase_count        INTEGER NOT NULL DEFAULT 1,
+    last_purchase_address TEXT,
+    last_purchase_date    TEXT,
+    notes                 TEXT,
+    created_at            TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at            TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (source, buyer_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_buyers_purchase_count ON buyers(purchase_count);
