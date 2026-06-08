@@ -13,11 +13,23 @@ two observable signals as worth a manual look — either is enough on its own:
   * INVESTOR-SHAPED NAME — the grantee is an entity whose name reads like a
     real-estate business (LLC/LP, "... Properties", "... Capital", "... Buys
     Houses", etc. — see `_INVESTOR_PATTERNS`) rather than a person's name.
-  * RECURRING GRANTEE — the same name receives 2+ deeds within the lookback
-    window. A person or company closing on multiple Harris County properties
-    in a matter of weeks is very likely buying to hold/flip/wholesale, not to
-    live in several houses at once — regardless of whether the name itself
-    looks like an entity.
+  * RECURRING GRANTEE — the same name receives 2+ *arms-length-looking* deeds
+    within the lookback window. A person or company closing on multiple
+    Harris County properties in a matter of weeks is very likely buying to
+    hold/flip/wholesale, not to live in several houses at once — regardless
+    of whether the name itself looks like an entity.
+
+    "Arms-length-looking" matters: by far the most common way a name shows up
+    as grantee repeatedly turns out to be a *family* redistributing property
+    among itself — partition/distribution deeds, retitling into a family
+    trust — where the grantee's apparent surname overlaps one of that same
+    deed's grantors' (including hyphenated maiden/married variants — "CENO"
+    vs "CENO-WYBLE" — see `_shares_surname_with_grantor`). Those don't
+    represent outside buying activity, so they're excluded from the recurring
+    count (though still surfaced in `notes`, with a "weigh less heavily"
+    flag, for anyone who wants to sanity-check the call) — without that
+    filter, an extended family settling an estate among 5-6 heirs across a
+    dozen parcels looked exactly like Houston's most active cash buyer.
 
 IMPORTANT — these are leads to *qualify*, not confirmed cash buyers: deed
 records carry no financing information at all. "Cash" here is an inference
@@ -64,6 +76,36 @@ _INVESTOR_PATTERNS = re.compile(
 _MIN_RECURRING_PURCHASES = 2
 
 _FILE_DATE_FORMAT = "%m/%d/%Y"
+
+# County names run "LAST FIRST [MIDDLE...]" (the same convention `templates._first_name`
+# and `apollo.split_owner_name` already assume for HCAD data) — the first token is the
+# surname. Allows hyphens/apostrophes ("CENO-WYBLE", "O'BRIEN") but not anything that
+# can't plausibly be one (initials, numbers, single letters).
+_SURNAME_RE = re.compile(r"^[A-Z][A-Z'\-]+$", re.I)
+
+
+def _surname_components(name: str) -> set[str]:
+    """Apparent surname token(s) for overlap checks — hyphenated surnames
+    ("CENO-WYBLE") split into parts, so a maiden/married hyphenation variant
+    of a family name ("CENO" vs "CENO-WYBLE") still registers as the same
+    family rather than a coincidental stranger. Empty when the first token
+    doesn't plausibly read as a surname (entity names, initials, numbers)."""
+    parts = name.split()
+    if not parts or not _SURNAME_RE.match(parts[0]):
+        return set()
+    return set(parts[0].upper().split("-"))
+
+
+def _shares_surname_with_grantor(grantee: str, record: DeedRecord) -> bool:
+    """True when this grantee's apparent surname overlaps one of the deed's
+    grantors' — the fingerprint of a partition/distribution deed where the
+    same family redistributes property among themselves, not a sale to an
+    outside buyer. Recurring "purchases" that are really this are the most
+    common false-positive this source produces (see module docstring)."""
+    grantee_components = _surname_components(grantee)
+    if not grantee_components:
+        return False
+    return any(_surname_components(g) & grantee_components for g in record.grantors)
 
 
 @dataclass
@@ -166,7 +208,17 @@ class HarrisCountyBuyerSource:
         buyers: list[Buyer] = []
         for grantee, deeds in purchases.items():
             investor_name = bool(_INVESTOR_PATTERNS.search(grantee))
-            recurring = len(deeds) >= _MIN_RECURRING_PURCHASES
+
+            # Deeds where the grantee shares an apparent surname with one of
+            # its own grantors look like a family redistributing property
+            # among itself (partition/distribution deeds, retitling into a
+            # family trust), not an outside party buying it — by far the
+            # most common way "appears as grantee repeatedly" turns out not
+            # to mean "is buying houses". Only purchases *without* that
+            # pattern count toward the recurring-buyer signal.
+            family_shaped = [d for d in deeds if _shares_surname_with_grantor(grantee, d)]
+            arms_length_count = len(deeds) - len(family_shaped)
+            recurring = arms_length_count >= _MIN_RECURRING_PURCHASES
             if not (investor_name or recurring):
                 continue
 
@@ -174,7 +226,13 @@ class HarrisCountyBuyerSource:
             if investor_name:
                 signals.append("investor-shaped entity name")
             if recurring:
-                signals.append(f"{len(deeds)} purchases in the last {self.days_back} days")
+                signals.append(f"{arms_length_count} arms-length-looking purchase(s) in the last {self.days_back} days")
+            if family_shaped:
+                signals.append(
+                    f"{len(family_shaped)} of its {len(deeds)} total appearance(s) as grantee "
+                    f"came from a grantor sharing its apparent surname — likely an intra-family "
+                    f"transfer, not a purchase; weigh those less heavily"
+                )
 
             latest = max(deeds, key=_parsed_file_date)
             buyers.append(Buyer(

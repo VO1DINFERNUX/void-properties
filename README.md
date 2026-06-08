@@ -46,8 +46,23 @@ python scripts\init_db.py
   people/entities actively purchasing Harris County property right now. A
   grantee is flagged when its name reads like a real-estate investor/
   wholesaler (`_INVESTOR_PATTERNS` — LLC/LP, "... Properties", "... Capital",
-  "Buys Houses", etc.) and/or it shows up as grantee on 2+ deeds within the
-  lookback window — a buying *pattern* a regular homebuyer wouldn't show.
+  "Buys Houses", etc.) and/or it shows up as grantee on 2+ *arms-length-
+  looking* deeds within the lookback window — a buying *pattern* a regular
+  homebuyer wouldn't show.
+
+  "Arms-length-looking" is doing real work there: a first pass over a 30-day
+  window found that the single biggest source of "recurring grantee" false
+  positives — by a wide margin (it cut the result set from 538 to 191) — was
+  **families redistributing property among themselves** (partition/
+  distribution deeds, retitling into a family trust), where the grantee
+  shares an apparent surname (including hyphenated maiden/married variants —
+  "CENO" vs "CENO-WYBLE") with one of that same deed's grantors
+  (`_shares_surname_with_grantor`). Those purchases don't count toward the
+  recurring signal — though they're still surfaced in `notes` with a "weigh
+  less heavily" flag for anyone who wants to sanity-check the call, in the
+  same spirit as every other UNVERIFIED marker here: visible for a human to
+  judge, not silently discarded.
+
   Deed records carry no financing info at all, so "cash buyer" here is an
   inference from purchase pattern, not a fact — every result lands in the
   `buyers` table flagged UNVERIFIED, same conservative posture as the seller
