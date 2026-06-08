@@ -8,14 +8,24 @@ local SQLite database, and tracks outreach through the deal pipeline.
 ```
 void-properties/
 ├── config/             # .env (not committed) and example config
+├── contracts/          # Purchase/Assignment contract templates + generated/ (gitignored)
 ├── data/               # local SQLite database file lives here
 ├── logs/               # run logs
 ├── scripts/
-│   └── init_db.py      # creates the database from src/db/schema.sql
+│   ├── init_db.py              # creates the database from src/db/schema.sql
+│   ├── generate_contracts.py   # fills the closing contracts for a lead/deal
+│   ├── close_deal.py           # generates + emails a buyer their Assignment Contract once they say yes
+│   ├── mao_calculator.py       # Maximum Allowable Offer calculator (CLI)
+│   ├── daily_pipeline.py       # the full scrape->resolve->enrich->score->alert run (see "Daily pipeline")
+│   ├── run_daily_pipeline.ps1  # wrapper Task Scheduler invokes (logs to logs/daily_pipeline.log)
+│   └── setup_daily_task.ps1    # registers the 7 AM Task Scheduler job
 └── src/
     ├── db/             # schema + connection helper
     ├── scraper/        # LeadSource implementations + save pipeline
-    └── outreach/       # contact logging and pipeline status tracking
+    ├── enrichment/     # address/contact/score enrichment, MAO calculator (mao.py),
+    │                   # and buyer-shortlisting (buyer_match.py)
+    ├── outreach/       # contact logging and pipeline status tracking
+    └── contracts/      # closing-stage contract generation (see "Closing")
 ```
 
 ## Setup
@@ -151,6 +161,37 @@ python scripts\init_db.py
   individually, so a slow API response never holds the `leads` table's write
   lock open across the whole run.
 
+  **`enrich_buyers()`** does the same thing for the `buyers` table —
+  filling in `buyer_phone`/`buyer_email` (added by `init_db`/`_ensure_columns`;
+  see "Database schema") so a hot lead's cash-buyer shortlist (see
+  `buyer_match.py` below) comes with a way to actually reach them. Same
+  People Match call, same entity filter, same read-then-write-individually
+  lock-avoidance pattern — but the entity filter bites much harder here:
+  Apollo's `/people/match` only finds *individuals*, and most genuinely-active
+  cash buyers are entities (LLCs, trusts, institutional investors) that
+  `split_owner_name`/`_ENTITY_NOISE` correctly skip as `skipped_entity` rather
+  than mismatch against a person who isn't them. Run both sides with
+  `python -m src.enrichment.apollo`, or call `enrich_buyers()` directly.
+
+- `src/enrichment/buyer_match.py` — surfaces a shortlist of cash-buyer
+  candidates worth a call about a given hot lead (folded into the hot-lead
+  alert email below — see `candidate_summary()`). Worth knowing **why this
+  is a shortlist and not a match**: real buyer-seller matching would need a
+  shared signal — a buyer's preferred area/property-type/budget against a
+  seller's location and likely price — and neither table carries any of that.
+  `buyers.last_purchase_address` isn't even a mailing address to geo-match
+  against; it's a recorded *legal description* (e.g. `"Desc: CLINTON | Lot: 7
+  | Block: 62"`), sharing no vocabulary with `leads.address`
+  (`"3703 INDIAN MOUND TRL, CROSBY 77532"`). Rather than fabricate a
+  compatibility score from data that can't support one — the same "flag it,
+  don't fake it" posture as `claude_score.py`'s equity inference — this just
+  ranks buyers by recent activity (has contact info on file, then
+  `purchase_count`, then `last_purchase_date`) and hands over an honest
+  "liveliest cash-buyer candidates by recent activity" list for Bryan to
+  apply his own judgment to. Call `candidate_summary()` for the
+  `(buyers, formatted_text)` pair `claude_score._notify_hot_lead` embeds, or
+  run `python -m src.enrichment.buyer_match` to preview the current shortlist.
+
 - `src/enrichment/claude_score.py` — ranks each lead 1-10 for outreach
   priority by handing Claude its scraped `motivation_tags` and `notes` (the
   file number, instrument type, and grantor/grantee names a county-records
@@ -175,6 +216,69 @@ python scripts\init_db.py
   `config/.env` (https://console.anthropic.com/settings/keys) — `ScoreError`
   explains what's missing if you skip that.
 
+  **MAO is wired in here too** — when a lead carries an `estimated_value`
+  (this project's only ARV proxy; see "MAO calculator" below for where that
+  number can come from and why it's usually empty), scoring also prints a
+  light/moderate/heavy MAO range alongside the score and appends the full
+  breakdown to `deal_score_rationale`, e.g.:
+  `lead #7: scored 8/10 — MAO ~ $119,000-$168,000 (ARV $245,000, light-to-heavy rehab range)`.
+
+  **And any lead scoring 7+ triggers an immediate hot-lead email** straight
+  to Bryan (`ALERT_EMAIL`/`ALERT_SCORE_THRESHOLD` in `claude_score.py`) with
+  its name, address, score, MAO range, Claude's own rationale for why it's
+  promising, **and a shortlist of his liveliest cash-buyer candidates** (see
+  `buyer_match.candidate_summary()` just above) — everything he needs to
+  move on a hot lead the moment it clears the bar, in one email — sent via
+  the same SendGrid integration `outreach_queue.py
+  contact ... email` uses (`channels.send_email`, needs `SENDGRID_API_KEY`/
+  `SENDGRID_FROM_EMAIL`). This is a notification *to the operator*, not
+  outreach to the lead, so it deliberately bypasses `tracker`/`log_outreach`
+  — routing it through there would log a false "you contacted this lead"
+  event against someone nobody's reached out to. A failed send prints the
+  same honest way every other send failure in this pipeline does, and
+  doesn't abort the run — a silent alert failure is how a good deal slips
+  through.
+
+## MAO calculator
+
+`src/enrichment/mao.py` computes the **Maximum Allowable Offer** — the
+ceiling on what you can offer a seller and still leave room for repairs, the
+costs of reselling, and the end buyer's required profit:
+
+```
+MAO = ARV - (ARV x 8% selling costs) - (ARV x 10% investor profit)
+          - (ARV x 4%/yr holding costs, prorated for the holding period)
+          - $3,500 closing costs - repair costs
+```
+
+Run it directly for a specific, fully-scoped deal:
+
+```
+python scripts\mao_calculator.py --arv 220000 --repair-costs 35000 --square-footage 1450 --holding-period 6
+```
+
+Square footage doesn't change the MAO — none of the rates above are
+per-square-foot — it's used only to print `$/sqft` figures (ARV and offer)
+as a sanity check on the result against comparable per-foot pricing in the
+area. The holding-cost rate is read as an *annual* rate of ARV and prorated
+by the holding period in months — the only reading that both produces
+realistic carrying-cost dollar amounts and gives the holding-period input
+something to do.
+
+**Where this plugs into scoring**: `claude_score.score_leads()` calls
+`mao.quick_estimate()` for any lead with an `estimated_value` on file (see
+above). Since `leads` carries no repair-cost, square-footage, or
+holding-period data — and `estimated_value` itself is usually NULL for
+county-records leads, populated only by manual entry or future enrichment
+(this project deliberately doesn't scrape Zillow; see "Lead sources") —
+asserting one made-up repair number into a number this confident-looking
+would be exactly the mistake "flag it, don't fake it" exists to prevent.
+`quick_estimate()` instead runs the same formula across light/moderate/heavy
+rehab-scope assumptions (10%/20%/30% of ARV) at a fixed 6-month hold and
+returns all three — an honest range, not a guess dressed up as a fact. Once
+you've actually scoped a property's repairs, run `mao_calculator.py` directly
+for the real number.
+
 ## Pipeline
 
 1. **Scrape** — implement a `LeadSource` in `src/scraper/scraper.py` for each
@@ -191,6 +295,60 @@ python scripts\init_db.py
    <channel> ...` actually sends one via Twilio/SendGrid.
 4. **Review pipeline** — `src/outreach/tracker.pipeline_summary()` (also
    printed at the top of the queue) gives a quick count of leads per status.
+
+### Daily pipeline (automated, 7 AM)
+
+`scripts/daily_pipeline.py` runs steps 1-2 above end to end, then scores and
+alerts, completely unattended:
+
+```
+1a/1b. scrape sellers + buyers  ->  2a/2b. resolve seller addresses (HCAD)
+  ->  3a/3b. Apollo-enrich sellers + buyers (phone/email)
+  ->  4. Claude-score sellers (+ MAO, + hot-lead alert w/ buyer shortlist)
+```
+
+It's registered as the Windows Scheduled Task **`VoidProperties-DailyPipeline`**,
+firing every morning at 7:00 AM via `scripts/run_daily_pipeline.ps1` (a thin
+wrapper that pins a real `python.exe` — Task Scheduler doesn't reliably
+resolve the WindowsApps execution-alias shim `python` resolves to
+interactively — and appends timestamped output, including stderr, to
+`logs/daily_pipeline.log`). Each stage is wrapped individually (`_stage()`)
+so one broken stage (a missing API key, a network blip, a dead source site)
+can't take the rest of an unattended morning down with it; failures print
+loudly into the log rather than vanishing silently.
+
+```powershell
+# register / re-register the task (idempotent — safe to re-run after edits)
+powershell -ExecutionPolicy Bypass -File scripts\setup_daily_task.ps1
+
+# check on it
+Get-ScheduledTask -TaskName VoidProperties-DailyPipeline | Get-ScheduledTaskInfo
+
+# run it on demand (outside its 7 AM trigger)
+Start-ScheduledTask -TaskName VoidProperties-DailyPipeline
+
+# remove it entirely
+Unregister-ScheduledTask -TaskName VoidProperties-DailyPipeline -Confirm:$false
+
+# run it by hand without Task Scheduler at all (e.g. to watch it live)
+python scripts\daily_pipeline.py              # full run
+python scripts\daily_pipeline.py --skip-scrape  # re-run resolve/enrich/score only
+```
+
+**What this deliberately does NOT do** — even though the original ask wanted
+it all wired into one unattended run, this stops short of emailing buyers
+deal terms or generating/sending contracts on a "yes." Both need information
+that simply doesn't exist at 7 AM scoring time: a real negotiated purchase
+price and assignment fee (`DealTerms` requires these as explicit input —
+they can't be inferred from `leads`/`buyers`), and confirmation that a
+specific buyer has actually said yes (this system is **outbound-only** —
+there's no inbound email/SMS handling to detect a reply with; building that
+would mean standing up a public, always-on webhook server, real new
+infrastructure this project doesn't have). Sending a real dollar figure, or
+a signable legal contract, to a real third party on a guess is a different
+order of mistake than a wrong guess anywhere else in this pipeline — so
+those stay a manual, human-triggered step once Bryan has real numbers and a
+real "yes" in hand. See `scripts/close_deal.py` under "Closing" below.
 
 ## Outreach
 
@@ -286,13 +444,102 @@ SENDGRID_API_KEY=
 SENDGRID_FROM_EMAIL=       # must be a verified sender in your SendGrid account
 ```
 
+## Closing
+
+Once a deal is actually under contract and ready to close, two documents have
+to go out: a **Purchase Contract** (you and the seller — the original
+acquisition) and an **Assignment of Contract** (you and the end cash buyer —
+the wholesale flip that's the whole point of the deal). `contracts/` holds a
+plain-text template for each — `purchase_contract_template.txt` and
+`assignment_contract_template.txt`, modeled on this project's actual TP
+wholesaling forms — with `{}` placeholders in the same `.format()` style
+`src/outreach/templates.py` already uses for outreach copy.
+
+`src/contracts/generator.py` fills them in. Run it with:
+
+```
+python scripts\generate_contracts.py <lead_id> ^
+    --purchase-price 145000 --buyer-name "ABC Capital LLC" ^
+    --assignment-fee 12000 --close-date 2026-07-15
+```
+
+This writes a completed `lead<id>_purchase_contract_<date>.txt` and
+`lead<id>_assignment_contract_<date>.txt` to `contracts/generated/`
+(gitignored — these carry real names, addresses, and deal terms).
+
+**Why some fields come from the database and others are CLI flags:**
+`seller_name`/`property_address` are standing facts about a `leads` row
+(`owner_name`/`address`+`city`+`state`+`zip`) — pulled automatically, same as
+every outreach template. But `purchase_price`, `buyer_name` (the end cash
+buyer — the "Assignee"), `assignment_fee`, and `close_of_escrow_date` describe
+*this one closing* — there's nowhere in `leads`/`buyers` that could hold "what
+we agreed to pay for this property, closing on this date" without conflating
+a one-time negotiated event with a standing fact about the property. Putting
+a wrong number in a document meant to be signed is a different order of
+mistake than mis-scraping an address, so `DealTerms` requires these explicitly
+rather than guessing from `leads.estimated_value` or anywhere else —
+`assignee_purchase_price` (Assignee's Purchase Price) is the one figure
+computed automatically, as `purchase_price + assignment_fee`, exactly how the
+Assignment contract itself defines it, so the two numbers can never be
+entered inconsistently. Bryan Moran / Void Properties fill in as Buyer (in
+the Purchase Contract) and Assignor (in the Assignment) from constants —
+reusing `templates.SENDER_NAME`/`SENDER_PHONE` so that identity lives in
+exactly one place across outreach and contracts.
+
+A handful of blanks the source contracts leave open for case-by-case handling
+— earnest money, escrow agent name/address, APN, inspection period,
+signature titles/addresses/emails, Assignee deposit specifics — are
+deliberately left blank in the generated documents too. Auto-filling those
+would mean inventing figures this module has no way to know, which is a worse
+failure mode in a signable legal document than a visible blank a human
+completes by hand — the same "flag it, don't fake it" posture as every
+UNVERIFIED marker elsewhere in this pipeline.
+
+### Closing the loop once a buyer says yes
+
+`scripts/close_deal.py` is the manual, human-triggered step `daily_pipeline.py`
+deliberately stops short of (see "Daily pipeline" above for why that line gets
+drawn there). Once Bryan has heard a real "yes" from a real buyer — by phone,
+by reply, in person — and has the real numbers in hand, this turns that moment
+into a generated *and sent* closing packet in one command, reusing
+`generate_closing_packet` exactly like `generate_contracts.py` does:
+
+```powershell
+# preview — generates both contracts into contracts/generated/ and shows
+# exactly what WOULD be emailed and to whom. Sends nothing.
+python scripts\close_deal.py <lead_id> ^
+    --buyer-name "ABC Capital LLC" --buyer-email "deals@abccapital.com" ^
+    --purchase-price 145000 --assignment-fee 12000 --close-date 2026-07-15
+
+# add --send to actually fire — same "preview by default" convention as
+# `outreach_queue.py followups`, because this emails a real signable legal
+# document to a real third party
+python scripts\close_deal.py <lead_id> ... --send
+```
+
+**Only the Assignment Contract goes to the buyer** — deliberately. The
+Purchase Contract names the seller and what Void Properties is paying *them*;
+a buyer who can see the seller's identity and your acquisition price could go
+around you straight to the seller and cut you out of your own assignment fee.
+(The Assignment Contract already discloses the fee and the assignee's purchase
+price — that's legitimately the buyer's business; the seller's identity and
+your terms with them aren't.) Both contracts still get written to
+`contracts/generated/` and **both** get emailed to Bryan
+(`bryantushifukato1213@gmail.com`) as his closing-packet record — same
+operator-notification inbox `claude_score`'s hot-lead alerts use, and like
+those, this bypasses `tracker`/`log_outreach` (it's a record for Bryan, not
+outreach to a lead).
+
 ## Database schema
 
 See `src/db/schema.sql` — `leads` (with `deal_score`/`deal_score_rationale`
 from `claude_score.py`), `outreach_events` (foreign key to `leads`), and
 `buyers` (populated by `harris_county_buyers.py`, upserted on
-`(source, buyer_name)`). The `deal_score`/`deal_score_rationale` columns are
-added by `init_db()` itself rather than `CREATE TABLE`/`ALTER ... ADD COLUMN`
-in schema.sql — SQLite has no `ADD COLUMN IF NOT EXISTS`, so a plain `ALTER`
+`(source, buyer_name)`, with `buyer_phone`/`buyer_email` filled in by
+`apollo.enrich_buyers` — see "Enrichment"). The `deal_score`/
+`deal_score_rationale` and `buyer_phone`/`buyer_email` columns are all added
+by `init_db()` itself rather than `CREATE TABLE`/`ALTER ... ADD COLUMN` in
+schema.sql — SQLite has no `ADD COLUMN IF NOT EXISTS`, so a plain `ALTER`
 there would fail every re-run once the column exists; `database._ensure_columns`
-checks `PRAGMA table_info` first and adds only what's missing.
+checks `PRAGMA table_info` first and adds only what's missing (see
+`_ADDED_COLUMNS` in `src/db/database.py`).

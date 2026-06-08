@@ -68,4 +68,11 @@ CREATE TABLE IF NOT EXISTS buyers (
     UNIQUE (source, buyer_name)
 );
 
+-- buyer_phone/buyer_email — added by init_db() itself (see database.py's
+-- _ensure_columns, same ALTER-TABLE-guarded-by-PRAGMA pattern as
+-- leads.deal_score above). Filled in by src.enrichment.apollo.enrich_buyers,
+-- the buyer-side mirror of enrich_leads — see that function's docstring for
+-- why most of the *active* buyers here (LLCs, trusts, institutions) won't
+-- get a hit through Apollo's person-match API even so.
+
 CREATE INDEX IF NOT EXISTS idx_buyers_purchase_count ON buyers(purchase_count);

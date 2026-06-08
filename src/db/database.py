@@ -25,6 +25,10 @@ _ADDED_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("deal_score", "INTEGER CHECK (deal_score BETWEEN 1 AND 10)"),
         ("deal_score_rationale", "TEXT"),
     ],
+    "buyers": [
+        ("buyer_phone", "TEXT"),
+        ("buyer_email", "TEXT"),
+    ],
 }
 
 

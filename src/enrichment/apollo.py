@@ -23,6 +23,22 @@ APOLLO_PHONE_WEBHOOK_URL names somewhere that can — otherwise it takes
 whatever Apollo can hand back directly, which in practice means email
 enrichment is the reliable half of this integration and phone is a bonus
 when Apollo already has one on file.
+
+`enrich_buyers()` runs the identical match -> write-back flow against the
+`buyers` table (`buyer_phone`/`buyer_email`, mirroring `leads.owner_phone`/
+`owner_email`) — the prerequisite for ever reaching out to a flagged cash
+buyer at all (see `harris_county_buyers.py`: that source only ever captures
+a grantee *name* off a deed record, nothing to contact them with). One real
+limitation worth knowing up front: Apollo's `/people/match` is a *person*
+search, and most of the buyers this project's own source flags as genuinely
+active (LLCs, trusts, "... Capital", institutional grantees) are entities,
+not individuals — `split_owner_name`'s `_ENTITY_NOISE` filter (built for
+exactly this "is there a person here for Apollo to find" question) will
+correctly skip them rather than waste credits on a guaranteed miss. In
+practice that means this fills in contact info for the minority of buyer
+records that read as an individual's name; reaching an LLC or trust means
+finding its principal or registered agent — a manual look (Texas Secretary
+of State, Harris County records), not something this client can automate.
 """
 from __future__ import annotations
 
@@ -212,5 +228,75 @@ def enrich_leads(limit: Optional[int] = None, request_delay: float = _DEFAULT_RE
     return stats
 
 
+def enrich_buyers(limit: Optional[int] = None, request_delay: float = _DEFAULT_REQUEST_DELAY) -> dict[str, int]:
+    """Fill in `buyer_phone`/`buyer_email` for buyers Apollo can identify.
+
+    The buyer-side mirror of `enrich_leads` — same targeting logic (a name to
+    search on, neither contact field filled in yet), same `split_owner_name`
+    individual-vs-entity filter (grantee names follow the identical "LAST
+    FIRST [MIDDLE...]" convention as HCAD owner names — see
+    `harris_county_buyers.py`'s docstring), same lock-avoidance shape (read
+    the candidate list once, do every Apollo round-trip outside any open
+    write transaction, write back individually).
+
+    One thing this *doesn't* mirror: `enrich_leads` requires `zip IS NOT
+    NULL` (a signal that `hcad.py` has resolved a real address worth
+    spending credits to chase). `buyers` carries no such signal — its
+    `last_purchase_address` is a deed *legal description* ("Desc: CLINTON |
+    Lot: 7 | Block: 62"), not a mailing address, and there is no resolution
+    step that turns it into one. The only pre-filter available here is
+    `split_owner_name` itself — which is exactly why most of this table's
+    most-active entries (LLCs, trusts, institutions) get skipped as
+    `skipped_entity` rather than searched: see this module's docstring for
+    why that's Apollo's own search shape, not a gap in this filter.
+
+    Returns counts: checked, matched, no_match, skipped_entity.
+    """
+    _api_key()  # fail fast on a missing/blank key before reading anything
+    stats = {"checked": 0, "matched": 0, "no_match": 0, "skipped_entity": 0}
+    phone_webhook_url = os.environ.get("APOLLO_PHONE_WEBHOOK_URL")
+
+    with get_connection() as conn:
+        query = (
+            "SELECT id, buyer_name FROM buyers "
+            "WHERE buyer_phone IS NULL AND buyer_email IS NULL AND buyer_name IS NOT NULL "
+        )
+        params: list = []
+        if limit is not None:
+            query += "LIMIT ?"
+            params.append(limit)
+        buyers = [dict(row) for row in conn.execute(query, params).fetchall()]
+
+    for buyer in buyers:
+        stats["checked"] += 1
+        split = split_owner_name(buyer["buyer_name"])
+        if split is None:
+            stats["skipped_entity"] += 1
+            continue
+        first, last = split
+
+        person = match_person(first, last, phone_webhook_url)
+        phone = email = None
+        if person is not None:
+            phone = _best_phone(person)
+            email = _best_email(person)
+
+        if not (phone or email):
+            stats["no_match"] += 1
+        else:
+            with get_connection() as conn:
+                conn.execute(
+                    "UPDATE buyers SET buyer_phone = ?, buyer_email = ?, "
+                    "updated_at = datetime('now') WHERE id = ?",
+                    (phone, email, buyer["id"]),
+                )
+            stats["matched"] += 1
+
+        time.sleep(request_delay)
+
+    return stats
+
+
 if __name__ == "__main__":
-    print(enrich_leads())
+    print("leads:", enrich_leads())
+    print("buyers:", enrich_buyers())

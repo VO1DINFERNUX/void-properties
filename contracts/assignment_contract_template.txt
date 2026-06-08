@@ -1,0 +1,122 @@
+ASSIGNMENT OF PURCHASE CONTRACT AND ESCROW INSTRUCTIONS
+
+This is a legally binding Assignment of the Purchase Contract and Escrow Instructions
+("Assignment"), entered this day _______________________, 20____.
+
+BETWEEN:
+
+{company_name} ("Assignor") assigns to {buyer_name} ("Assignee") all of Assignor's
+rights, title, and interest (except those rights specifically retained and reserved by Assignor
+as set forth in this Assignment), together with Assignor's duties and obligations, under that
+certain Purchase Contract and Escrow Instructions or similar purchase contract (the "Purchase
+Contract") for the purchase of certain real property located at:
+
+{property_address}
+
+and legally described as: As stated in the Commitment to be provided by Escrow Agent, and
+Assessor's Parcel Number (APN/Account #): ____________________________________ (the "Property").
+Assignee hereby accepts this Assignment and assumes all of Assignor's duties and obligations
+under the Purchase Contract. Capitalized terms not otherwise defined in this Assignment shall
+have the meanings given to them in the Purchase Contract.
+
+PURCHASE PRICE AND ASSIGNMENT FEE:
+
+Assignee shall pay the amount of ______________________________________ and 00/100 Dollars
+($ {assignee_purchase_price}) ("Assignee's Purchase Price") for the Property. Assignee's
+Purchase Price is the sum of (a) Assignor's purchase price under the Purchase Contract
+($ {purchase_price}), plus (b) an assignment fee of $ {assignment_fee} (the "Assignment Fee").
+The Assignment Fee is the amount equal to the difference between Assignee's Purchase Price and
+the purchase price under the Purchase Contract or, in the event Assignor itself acquired its
+position by a prior assignment, the amount Assignor agreed to pay for the Property under that
+prior assignment. The Assignment Fee shall be paid to Assignor by Escrow Agent at and from the
+proceeds of Closing.
+
+CLOSE OF ESCROW:
+
+The close of escrow date is: {close_of_escrow_date} ("COE Date"). Assignee shall deliver to
+Escrow Agent, no later than two (2) business days before the COE Date, a cashier's check, wired
+funds, or other immediately available funds sufficient to pay Assignee's Purchase Price and all
+closing costs, fees, charges, and other amounts to be paid by the "Buyer" under the Purchase
+Contract (collectively, the "Closing Funds"). Time is of the essence with respect to the COE
+Date and the delivery of the Closing Funds.
+
+DEPOSIT:
+
+Assignee agrees to deposit ______________________________________ and 00/100 Dollars
+($ ________________________ ) (the "Assignee Earnest Money"), which shall be Non-Refundable,
+with Escrow Agent:
+
+_______________________________________________________  by  _______________________, 20____
+
+RETURN OF EARNEST MONEY TO ASSIGNOR. If Assignee fails to close for any reason other than
+Assignor's default or Assignor's failure to deliver marketable title, the Assignee Earnest Money
+(and any other deposits made by Assignee in connection with this Assignment) shall be paid to and
+retained by Assignor as agreed-upon liquidated damages, and not as a penalty, it being agreed
+that Assignor's actual damages would be difficult to ascertain.
+
+ASSIGNOR'S ABILITY TO ENFORCE THE PURCHASE CONTRACT. Assignor represents that, as of the date of
+this Assignment, the Purchase Contract is in full force and effect and that Assignor has not
+taken any action, or failed to take any action, that would impair Assignor's rights under the
+Purchase Contract or its ability to assign those rights to Assignee as set forth herein.
+
+SUBSEQUENT ASSIGNMENT BY ASSIGNEE. Assignee may not further assign this Assignment, the Purchase
+Contract, or any of Assignee's rights or obligations hereunder or thereunder, without Assignor's
+prior written consent, which consent may be granted or withheld in Assignor's sole discretion.
+
+AS-IS PURCHASE. ASSIGNEE ACKNOWLEDGES AND AGREES THAT ASSIGNEE IS ACQUIRING ASSIGNOR'S INTEREST IN
+THE PROPERTY AND THE PURCHASE CONTRACT "AS IS, WHERE IS, WITH ALL FAULTS," BASED SOLELY ON
+ASSIGNEE'S OWN INSPECTION AND INVESTIGATION, AND NOT IN RELIANCE ON ANY REPRESENTATION, WARRANTY,
+OR STATEMENT OF ASSIGNOR OR ANY AGENT OR REPRESENTATIVE OF ASSIGNOR, WHETHER ORAL OR WRITTEN,
+EXPRESS OR IMPLIED, REGARDING THE PROPERTY, THE PURCHASE CONTRACT, OR EITHER ONE'S CONDITION,
+EXCEPT AS EXPRESSLY SET FORTH HEREIN.
+
+TIME IS OF THE ESSENCE. Time is of the essence with respect to every term and condition of this
+Assignment, including without limitation the COE Date and the delivery of the Closing Funds and
+the Assignee Earnest Money.
+
+ADDITIONAL AGREEMENTS AND ACKNOWLEDGMENTS. Assignee acknowledges and agrees that Assignor is a
+"Wholesale Seller" that holds an equitable interest in the Property by virtue of the Purchase
+Contract, is not the titled owner of the Property, and is conveying only its contractual rights
+under the Purchase Contract (not the Property itself) in exchange for the Assignment Fee.
+Assignee further acknowledges and agrees, by initialing below, to each of the following:
+
+_____ Assignee Initials — Assignee has had the opportunity to obtain financing for Assignee's
+      Purchase Price and is not relying on any financing contingency in this Assignment; this
+      Assignment is not contingent on Assignee obtaining financing of any kind.
+
+_____ Assignee Initials — Assignee has had the opportunity to inspect the Property (or to retain
+      its own inspectors to do so) and is not relying on any further inspection period or
+      inspection contingency in connection with this Assignment.
+
+_____ Assignee Initials — This Assignment is non-cancellable by Assignee once signed, except as
+      expressly provided herein.
+
+_____ Assignee Initials — Assignee acknowledges Assignor's right to assign its interest under the
+      Purchase Contract, as set forth in the Purchase Contract and this Assignment.
+
+_____ Assignee Initials — Assignee shall be solely responsible for any personal property or items
+      left behind at the Property after Closing, and Assignor makes no representation or
+      warranty regarding any such items.
+
+_____ Assignee Initials — Assignee acknowledges that this Assignment is valid and binding only
+      when signed by both Assignor and Assignee.
+
+ATTORNEY FEES PROVISION. The prevailing Party in any action or proceeding arising out of or
+relating to this Assignment shall be entitled to recover its reasonable attorneys' fees and costs
+from the non-prevailing Party.
+
+AGREED: By signing below, Assignor and Assignee each acknowledge that they have read, understand,
+and agree to be bound by all of the terms of this Assignment and, where applicable, the Purchase
+Contract referenced herein.
+
+
+SIGNATURES:
+
+ASSIGNOR:                                       ASSIGNEE:
+
+Name:  {company_name}                          Name:  {buyer_name}
+By:    {signer_name}                           By:    ________________________________
+Its:   ________________________________        Its:   ________________________________
+Date:  ________________________________        Date:  ________________________________
+
+Phone: {signer_phone}

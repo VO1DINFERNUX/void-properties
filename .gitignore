@@ -6,3 +6,4 @@ venv/
 data/*.db
 data/hcad/
 logs/*.log
+contracts/generated/

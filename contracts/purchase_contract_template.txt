@@ -1,0 +1,199 @@
+PURCHASE CONTRACT AND ESCROW INSTRUCTIONS
+
+THIS PURCHASE CONTRACT AND ESCROW INSTRUCTIONS ("Contract") is effective as of the latest date it
+is executed by the Parties (the "Effective Date"), and comprises the entire contract and agreement
+between Seller (defined in Section 1.8 below) and Buyer (defined in Section 1.8 below)
+(collectively, the "Parties").
+
+1. BASIC TERMS. This Section 1 defines the Basic Terms of this Contract.
+
+1.1  Property Address:     {property_address}
+                           APN: ____________________________________________
+
+1.2  Legal Description:    As stated in the Commitment to be provided by Escrow Agent.
+
+1.3  The Property:         The real property described in Sections 1.1 and 1.2, together with
+                           all improvements, fixtures, and appurtenances thereon and incidental
+                           thereto, plus the personal property described in Section 1.11
+                           (collectively, the "Property").
+
+1.4  Earnest Money:        $ ________________________________ (the "Deposit")
+
+1.5  Purchase Price:       $ {purchase_price}
+
+1.6  Close of Escrow:      {close_of_escrow_date} ("COE")
+
+1.7  Escrow Agent:         Name: __________________________________________________
+                           Address: _______________________________________________
+                           Escrow Officer: ________________________________________
+                           Email: _________________________________________________
+
+1.8  Parties:              Seller:  {seller_name}
+                           Buyer:   {company_name}
+
+1.9  Inspection Period:    _____ Days from the Effective Date. If the Inspection Period falls on
+                           a Saturday, Sunday, or holiday, it shall automatically extend until
+                           5:00 PM the following business day.
+
+1.10 Closing Amounts shall be paid as follows:
+       Escrow fees and costs:                         [ ] 50% Buyer / 50% Seller   [ ] 100% Buyer
+       Standard title policy premium:                 [ ] Seller   [ ] Buyer
+       HOA fees (disclosure, transfer, capital
+       improvement / reserve), if applicable:         [ ] 50% Buyer / 50% Seller   [ ] 100% Buyer
+
+1.11 Personal property included in the sale includes all items attached and affixed to the
+     Property as of the Effective Date, and the following:
+
+     ___________________________________________________________________________________
+
+1.12 Additional Terms and Conditions:
+
+     ___________________________________________________________________________________
+     ___________________________________________________________________________________
+
+2. PURCHASE AND SALE. Subject to the terms and conditions of this Contract, Seller agrees to sell
+and convey the Property to Buyer, and Buyer agrees to purchase the Property from Seller, for the
+Purchase Price, payable as set forth in this Contract. The Deposit shall be applied toward the
+Purchase Price at Closing. Seller shall convey marketable, fee-simple title to the Property to
+Buyer by general warranty deed (or the form of deed customary in the jurisdiction where the
+Property is located), free and clear of all liens, encumbrances, and other matters affecting
+title, except those Buyer agrees in writing to accept.
+
+3. STATUS OF TITLE. Within the time period required by Escrow Agent, Seller shall cause Escrow
+Agent to deliver to Buyer a current commitment for an owner's policy of title insurance (the
+"Commitment") covering the Property, together with copies of all instruments referenced as
+exceptions therein. Buyer shall have until the expiration of the Inspection Period to review the
+Commitment and notify Seller in writing of any matters Buyer finds objectionable. Seller shall use
+reasonable efforts to cure any such objections prior to Closing; if Seller is unwilling or unable
+to cure an objection, Buyer may, at Buyer's option, terminate this Contract and receive a full
+refund of the Deposit, or waive the objection and proceed to Closing.
+
+4. INSPECTION AND ACCESS. Buyer and Buyer's agents, contractors, and other representatives shall
+have the right, at Buyer's sole expense, to enter upon the Property during the Inspection Period
+to conduct any inspections, tests, studies, surveys, and other analyses Buyer deems necessary or
+appropriate, including a physical inspection of the Property and a review of all applicable
+records. Seller shall provide Buyer and Buyer's representatives reasonable access to the Property
+for these purposes. Buyer shall restore the Property to substantially the same condition it was
+in before any such inspection or test. If, in Buyer's sole and absolute discretion, the results of
+any such inspection, test, study, survey, or analysis are unsatisfactory for any reason, Buyer may
+terminate this Contract by written notice to Seller given before expiration of the Inspection
+Period and receive a full refund of the Deposit.
+
+5. DEPOSIT RELEASE INSTRUCTIONS. The Deposit shall be held by Escrow Agent in accordance with
+Escrow Agent's standard escrow instructions and applicable law. The Deposit shall be released to
+Seller only at Closing, applied toward the Purchase Price, or returned to Buyer in the event this
+Contract is terminated under a provision entitling Buyer to a refund of the Deposit. Should a
+dispute arise between the Parties regarding entitlement to the Deposit, Escrow Agent may, at its
+option, interplead the Deposit into a court of competent jurisdiction and shall thereafter be
+released and discharged from all further obligation in connection with the Deposit.
+
+6. LEAD-BASED PAINT DISCLOSURE. If the Property includes residential housing constructed prior to
+1978, Seller and Buyer shall execute a Lead-Based Paint Disclosure addendum in the form required
+by federal law before this Contract becomes binding, and Seller shall provide Buyer with any
+records and reports pertaining to lead-based paint or lead-based paint hazards in Seller's
+possession.
+
+7. AS-IS PURCHASE. EXCEPT FOR THE EXPRESS REPRESENTATIONS AND WARRANTIES SET FORTH IN THIS
+CONTRACT, BUYER ACKNOWLEDGES AND AGREES THAT BUYER IS PURCHASING THE PROPERTY "AS IS, WHERE IS,
+WITH ALL FAULTS," BASED SOLELY ON BUYER'S OWN INSPECTION AND INVESTIGATION OF THE PROPERTY, AND
+NOT IN RELIANCE ON ANY REPRESENTATION, WARRANTY, OR STATEMENT OF SELLER OR ANY AGENT OR
+REPRESENTATIVE OF SELLER, WHETHER ORAL OR WRITTEN, EXPRESS OR IMPLIED, REGARDING THE PROPERTY OR
+ITS CONDITION, EXCEPT AS EXPRESSLY SET FORTH HEREIN.
+
+8. ESCROW, COE, AND CLOSING COSTS. Closing shall take place through Escrow Agent on or before the
+COE Date set forth in Section 1.6, or such other date as the Parties may agree in writing. At
+Closing, Seller shall deliver a duly executed and acknowledged deed conveying the Property to
+Buyer, and Buyer shall deliver the balance of the Purchase Price (less the Deposit and plus or
+minus prorations and adjustments) in immediately available funds. Closing costs shall be
+allocated between the Parties as set forth in Section 1.10, and otherwise in accordance with the
+custom of the jurisdiction in which the Property is located.
+
+9. CURE NOTICE; REMEDIES; ATTORNEYS' FEES. If either Party fails to perform any obligation under
+this Contract, the non-defaulting Party shall give the defaulting Party written notice of the
+default and a reasonable opportunity (not less than three (3) business days) to cure it. If the
+default remains uncured, the non-defaulting Party may pursue any remedy available at law or in
+equity, including specific performance. The prevailing Party in any action or proceeding arising
+out of or relating to this Contract shall be entitled to recover its reasonable attorneys' fees
+and costs from the non-prevailing Party.
+
+10. NO ORAL CHANGES. This Contract may not be amended, modified, or supplemented except by a
+written instrument signed by both Seller and Buyer. No oral representation, statement, or
+agreement shall be binding on either Party.
+
+11. NOTICES. Any notice required or permitted under this Contract shall be in writing and shall
+be deemed given when delivered personally, sent by email with confirmation of receipt, or sent by
+overnight courier or certified mail, return receipt requested, to the address or email provided
+by each Party in this Contract (or such other address as a Party may designate in writing).
+
+12. MISCELLANEOUS.
+
+12.1 Entire Agreement. This Contract (including any addenda and exhibits) constitutes the entire
+agreement between the Parties regarding the Property and supersedes all prior negotiations,
+representations, and agreements, whether written or oral.
+
+12.2 Assignability and Novation. Buyer may assign this Contract, and all of Buyer's rights, title,
+and interest hereunder, to any third party without Seller's consent, and any such assignee shall
+be entitled to all of Buyer's rights and shall assume all of Buyer's obligations under this
+Contract. Upon such assignment, Buyer shall be released from all further obligations hereunder to
+the same extent as if the assignee had been the original "Buyer" named in this Contract (a
+novation), and Seller agrees to look solely to the assignee for performance from and after the
+date of the assignment.
+
+12.3 Time is of the Essence. Time is of the essence with respect to every term and condition of
+this Contract.
+
+12.4 Governing Law. This Contract shall be governed by and construed in accordance with the laws
+of the state in which the Property is located, without regard to conflict-of-laws principles.
+
+12.5 Counterparts; Electronic Signatures. This Contract may be executed in counterparts, each of
+which shall be deemed an original, and all of which together shall constitute one and the same
+instrument. Signatures transmitted electronically (including by email or e-signature platform)
+shall be deemed original signatures for all purposes.
+
+12.6 Severability. If any provision of this Contract is held to be invalid or unenforceable, the
+remaining provisions shall continue in full force and effect.
+
+12.7 Survival. Any provision of this Contract that, by its terms, is intended to survive Closing
+shall survive Closing and the delivery and recording of the deed.
+
+12.8 Buyer Disclosures and Voluntary Agreement. Seller understands and acknowledges that one or
+more members of {company_name} is a licensed real estate agent in the state of
+________________________, and that Buyer is a wholesale buyer/investor that may, in its sole
+discretion, assign its contractual interest in the Property to a third party for a fee (see
+Section 12.2). The Purchase Price set forth in this Contract may not reflect the Property's fair
+market value, and Seller is encouraged to seek independent advice (including from a licensed real
+estate agent, attorney, and/or appraiser) regarding the value of the Property before signing this
+Contract.
+
+Seller acknowledges and agrees that Seller has read and fully understands the terms and
+conditions of this Contract, is entering into it voluntarily, and has not been threatened,
+coerced, or unduly influenced into signing it.
+
+Seller Initials: _____ / _____                                          Buyer Initials: _____
+
+
+APPROVED AND ACCEPTED BY SELLER on _______________________________, 20____:
+
+SELLER/S:
+
+Name:  {seller_name}
+By:    ________________________________________
+Email: ________________________________________
+
+Name:  ________________________________________
+By:    ________________________________________
+Email: ________________________________________
+Date:  ________________________________________
+
+
+APPROVED AND ACCEPTED BY BUYER on _______________________________, 20____:
+
+BUYER COMPANY NAME: {company_name}
+
+Name:    {signer_name}
+By:      ________________________________________
+Its:     ________________________________________
+Address: ________________________________________
+         ________________________________________
+Email:   ________________________________________
+Phone:   {signer_phone}

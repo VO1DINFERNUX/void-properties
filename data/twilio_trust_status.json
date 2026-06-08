@@ -1,0 +1,9 @@
+{
+  "checked_at": "2026-06-08T04:51:46Z",
+  "customer_profile_status": "twilio-approved",
+  "a2p_brand_registration_exists": false,
+  "a2p_campaign_exists": false,
+  "voice_trust_product_exists": true,
+  "voice_trust_product_status": "twilio-approved",
+  "channel_endpoint_assignments_count": 0
+}
