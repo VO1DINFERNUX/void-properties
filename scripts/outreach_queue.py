@@ -6,11 +6,17 @@ Usage:
     python scripts/outreach_queue.py log 42 call --outcome interested --status responded
     python scripts/outreach_queue.py contact 42 sms --message "Hi, this is..."
     python scripts/outreach_queue.py contact 42 email --subject "Cash offer" --message "..."
+    python scripts/outreach_queue.py contact 42 sms --template sms
+    python scripts/outreach_queue.py contact 42 email --template intro_email
 
 `log` records an attempt *you* made yourself (a call, a knock on the door).
 `contact` actually sends — SMS/voice via Twilio, email via SendGrid — and
 logs the result either way; see config/.env.example for the credentials it
-needs.
+needs. Use `--template <name>` (see src/outreach/templates.py for the canned
+intro_email/follow_up_email/sms/voicemail copy) to send pre-written, on-brand
+outreach filled in automatically from the lead's own name and address — no
+`--message` typing required, and no `--subject` either for the email templates,
+which carry their own.
 """
 import argparse
 import sys
@@ -18,7 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.outreach import tracker
+from src.outreach import templates, tracker
 
 
 def _show_queue(limit: int) -> None:
@@ -53,8 +59,15 @@ def _log(args: argparse.Namespace) -> None:
 
 
 def _contact(args: argparse.Namespace) -> None:
-    if args.channel == "email" and not args.subject:
-        print("error: --subject is required for `contact ... email`", file=sys.stderr)
+    if bool(args.message) == bool(args.template):
+        print("error: pass exactly one of --message or --template", file=sys.stderr)
+        raise SystemExit(2)
+    if args.channel == "email" and args.message and not args.subject:
+        print(
+            "error: --subject is required for `contact ... email --message ...` "
+            "(--template supplies its own subject)",
+            file=sys.stderr,
+        )
         raise SystemExit(2)
 
     try:
@@ -62,6 +75,7 @@ def _contact(args: argparse.Namespace) -> None:
             lead_id=args.lead_id,
             channel=args.channel,
             message=args.message,
+            template=args.template,
             subject=args.subject,
             new_status=args.status,
         )
@@ -97,8 +111,15 @@ def main(argv: list[str] | None = None) -> None:
     contact_p = sub.add_parser("contact", help="actually send an SMS/call/email (Twilio/SendGrid) and log the result")
     contact_p.add_argument("lead_id", type=int)
     contact_p.add_argument("channel", choices=("sms", "call", "email"))
-    contact_p.add_argument("--message", required=True, help="message body (read aloud for `call`)")
-    contact_p.add_argument("--subject", help="email subject (required for `email`)")
+    contact_p.add_argument("--message", help="message body you write yourself (read aloud for `call`)")
+    contact_p.add_argument(
+        "--template", choices=sorted(templates.TEMPLATES),
+        help="send canned, on-brand copy filled in from the lead's own name/address instead of --message",
+    )
+    contact_p.add_argument(
+        "--subject",
+        help="email subject — required alongside --message for `email`; --template supplies its own",
+    )
     contact_p.add_argument(
         "--status", choices=sorted(tracker.VALID_STATUSES), default="contacted",
         help="status to set on a successful send (default: contacted)",

@@ -172,6 +172,12 @@ subcommand:
 python scripts/outreach_queue.py contact 42 sms   --message "Hi, this is..."
 python scripts/outreach_queue.py contact 42 call  --message "Hi, this is a recorded message for..."
 python scripts/outreach_queue.py contact 42 email --subject "Cash offer" --message "..."
+
+# or send canned, on-brand copy with no --message at all:
+python scripts/outreach_queue.py contact 42 sms   --template sms
+python scripts/outreach_queue.py contact 42 call  --template voicemail
+python scripts/outreach_queue.py contact 42 email --template intro_email
+python scripts/outreach_queue.py contact 42 email --template follow_up_email
 ```
 
 It looks up the lead's `owner_phone`/`owner_email`, sends through the
@@ -180,6 +186,14 @@ send (bad number, bounce, unverified sender) is as visible in the lead's
 history as a successful one, and the lead's `status` only advances on success
 (default target: `contacted`, override with `--status`). `direct_mail` and
 `door_knock` have no API to drive and stay on `log`.
+
+`--template` (`src/outreach/templates.py`) is the faster path day to day —
+four ready-written, personal-not-corporate messages (`intro_email`,
+`follow_up_email`, `sms`, `voicemail`) signed as Bryan Moran from the Twilio
+number, with `{first_name}`/`{property_address}` filled in automatically from
+that lead's own `owner_name`/`address` (`templates.render()`) — no typing a
+`--message` or `--subject` by hand, and no risk of a copy-paste mismatch
+between what you meant to send and what went out.
 
 Both providers are plain REST APIs, called directly with `requests` (no SDK
 dependency). Set these in `config/.env` (template in `config/.env.example`)

@@ -9,7 +9,7 @@ from typing import Optional
 
 from src.db.database import get_connection
 
-from . import channels
+from . import channels, templates
 from .channels import ChannelError, SendResult
 
 VALID_CHANNELS = {"call", "sms", "email", "direct_mail", "door_knock"}
@@ -61,7 +61,8 @@ _CONTACT_FIELD = {"sms": "owner_phone", "call": "owner_phone", "email": "owner_e
 def contact_lead(
     lead_id: int,
     channel: str,
-    message: str,
+    message: Optional[str] = None,
+    template: Optional[str] = None,
     subject: Optional[str] = None,
     new_status: str = "contacted",
 ) -> tuple[int, SendResult]:
@@ -74,6 +75,12 @@ def contact_lead(
     history as a successful one. On success the lead's status advances to
     `new_status` (default 'contacted'); on failure it's left alone, so a bad
     number or a bounce doesn't silently knock the lead out of the worklist.
+
+    Pass exactly one of `message` (a one-off string you write yourself) or
+    `template` (a name from `src.outreach.templates.TEMPLATES` — "intro_email",
+    "follow_up_email", "sms", "voicemail" — filled in from this lead's own
+    `owner_name`/`address` via `templates.render()`). A template's own subject
+    line, where it has one, overrides any `subject` you pass.
 
     Only `sms`, `call`, and `email` are wired to a provider. Raises
     `ValueError` for any other channel — use `log_outreach()` for
@@ -91,6 +98,8 @@ def contact_lead(
             f"contact_lead() can only send via {sorted(_CONTACT_FIELD)} — "
             f"'{channel}' has no provider; use log_outreach() to record it manually"
         )
+    if (message is None) == (template is None):
+        raise ValueError("contact_lead() needs exactly one of message= or template=")
 
     with get_connection() as conn:
         row = conn.execute("SELECT * FROM leads WHERE id = ?", (lead_id,)).fetchone()
@@ -102,6 +111,11 @@ def contact_lead(
     address = lead.get(field)
     if not address:
         raise ChannelError(f"Lead #{lead_id} has no {field} on file — can't send a {channel}")
+
+    if template is not None:
+        rendered_subject, message = templates.render(template, lead)
+        if rendered_subject is not None:
+            subject = rendered_subject
 
     if channel == "sms":
         result = channels.send_sms(address, message)
